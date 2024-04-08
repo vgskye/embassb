@@ -1,8 +1,5 @@
 use crate::Error;
-use bbqueue::{
-    framed::{FrameGrantR, FrameGrantW},
-    ArrayLength,
-};
+use bbqueue::framed::{FrameGrantR, FrameGrantW};
 use core::ops::{Deref, DerefMut};
 
 // | SW USE                        |               ACTUAL DMA PART                                    |
@@ -255,14 +252,11 @@ impl EsbHeader {
 /// been sent FROM the app, and are being read by the RADIO,
 /// or a payload that has send FROM the Radio, and is being
 /// read by the app
-pub struct PayloadR<N: ArrayLength<u8>> {
+pub struct PayloadR<const N: usize> {
     grant: FrameGrantR<'static, N>,
 }
 
-impl<N> PayloadR<N>
-where
-    N: ArrayLength<u8>,
-{
+impl<const N: usize> PayloadR<N> {
     /// Create a wrapped Payload Grant from a raw BBQueue Framed Grant
     pub(crate) fn new(raw_grant: FrameGrantR<'static, N>) -> Self {
         Self { grant: raw_grant }
@@ -280,7 +274,7 @@ where
     ///
     /// This includes part of the header, as well as the full payload
     pub(crate) fn dma_pointer(&self) -> *const u8 {
-        (&self.grant[EsbHeader::dma_payload_offset()..]).as_ptr()
+        self.grant[EsbHeader::dma_payload_offset()..].as_ptr()
     }
 
     /// Utility method to use with the CCM peripheral present in Nordic's devices. This gives a
@@ -326,10 +320,7 @@ where
     }
 }
 
-impl<N> Deref for PayloadR<N>
-where
-    N: ArrayLength<u8>,
-{
+impl<const N: usize> Deref for PayloadR<N> {
     type Target = [u8];
 
     /// Provide read only access to the payload of a grant
@@ -338,24 +329,18 @@ where
     }
 }
 
-impl<N> DerefMut for PayloadR<N>
-where
-    N: ArrayLength<u8>,
-{
+impl<const N: usize> DerefMut for PayloadR<N> {
     /// provide read/write access to the payload portion of the grant
     fn deref_mut(&mut self) -> &mut [u8] {
         &mut self.grant[EsbHeader::header_size()..]
     }
 }
 
-pub struct PayloadW<N: ArrayLength<u8>> {
+pub struct PayloadW<const N: usize> {
     grant: FrameGrantW<'static, N>,
 }
 
-impl<N> PayloadW<N>
-where
-    N: ArrayLength<u8>,
-{
+impl<const N: usize> PayloadW<N> {
     /// Update the header contained within this grant.
     ///
     /// This can be used to modify the pipe, length, etc. of the
@@ -418,7 +403,7 @@ where
     }
 
     pub(crate) fn dma_pointer(&mut self) -> *mut u8 {
-        (&mut self.grant[EsbHeader::dma_payload_offset()..]).as_mut_ptr()
+        self.grant[EsbHeader::dma_payload_offset()..].as_mut_ptr()
     }
 
     /// Update the pipe field.
@@ -496,10 +481,7 @@ where
     }
 }
 
-impl<N> Deref for PayloadW<N>
-where
-    N: ArrayLength<u8>,
-{
+impl<const N: usize> Deref for PayloadW<N> {
     type Target = [u8];
 
     /// provide read only access to the payload portion of the grant
@@ -508,10 +490,7 @@ where
     }
 }
 
-impl<N> DerefMut for PayloadW<N>
-where
-    N: ArrayLength<u8>,
-{
+impl<const N: usize> DerefMut for PayloadW<N> {
     /// provide read/write access to the payload portion of the grant
     fn deref_mut(&mut self) -> &mut [u8] {
         &mut self.grant[EsbHeader::header_size()..]

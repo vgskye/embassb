@@ -5,32 +5,24 @@ use crate::{
 };
 use bbqueue::{
     framed::{FrameConsumer, FrameProducer},
-    ArrayLength, Error as BbqError,
+    Error as BbqError,
 };
-use core::default::Default;
+use core::{convert::TryFrom, default::Default};
 
 /// This is the primary Application-side interface.
 ///
 /// It is intended to be used outside of the `RADIO` interrupt,
 /// and allows for sending or receiving frames from the ESB Radio
 /// hardware.
-pub struct EsbApp<OutgoingLen, IncomingLen>
-where
-    OutgoingLen: ArrayLength<u8>,
-    IncomingLen: ArrayLength<u8>,
-{
+pub struct EsbApp<const OUTGOING_LEN: usize, const INCOMING_LEN: usize> {
     // TODO(AJM): Make a constructor for this so we don't
     // need to make these fields pub(crate)
-    pub(crate) prod_to_radio: FrameProducer<'static, OutgoingLen>,
-    pub(crate) cons_from_radio: FrameConsumer<'static, IncomingLen>,
+    pub(crate) prod_to_radio: FrameProducer<'static, OUTGOING_LEN>,
+    pub(crate) cons_from_radio: FrameConsumer<'static, INCOMING_LEN>,
     pub(crate) maximum_payload: u8,
 }
 
-impl<OutgoingLen, IncomingLen> EsbApp<OutgoingLen, IncomingLen>
-where
-    OutgoingLen: ArrayLength<u8>,
-    IncomingLen: ArrayLength<u8>,
-{
+impl<const OUTGOING_LEN: usize, const INCOMING_LEN: usize> EsbApp<OUTGOING_LEN, INCOMING_LEN> {
     /// Obtain a grant for an outgoing packet to be sent over the Radio
     ///
     /// When space is available, this function will return a [`PayloadW`],
@@ -45,7 +37,7 @@ where
     /// `drop` the old grant, and create a new one.
     ///
     /// Only one grant may be active at a time.
-    pub fn grant_packet(&mut self, header: EsbHeader) -> Result<PayloadW<OutgoingLen>, Error> {
+    pub fn grant_packet(&mut self, header: EsbHeader) -> Result<PayloadW<OUTGOING_LEN>, Error> {
         // Check we have not exceeded the configured packet max
         if header.length > self.maximum_payload {
             return Err(Error::MaximumPacketExceeded);
@@ -88,7 +80,7 @@ where
     ///
     /// Returns `Some(PayloadR)` if a packet is ready to be read,
     /// otherwise `None`.
-    pub fn read_packet(&mut self) -> Option<PayloadR<IncomingLen>> {
+    pub fn read_packet(&mut self) -> Option<PayloadR<INCOMING_LEN>> {
         self.cons_from_radio.read().map(PayloadR::new)
     }
 
@@ -96,6 +88,46 @@ where
     #[inline]
     pub fn maximum_payload_size(&self) -> usize {
         self.maximum_payload.into()
+    }
+}
+
+/// A channel number for the radio hardware.
+/// Guaranteed to be between 0 and 100.
+#[repr(transparent)]
+#[derive(Clone, Copy)]
+pub struct RadioChannel(u8);
+
+impl RadioChannel {
+    /// Creates a RadioChannel from a raw byte.
+    /// # Safety
+    ///
+    /// `value` must be between 0 and 100
+    pub const unsafe fn from_raw(value: u8) -> Self {
+        Self(value)
+    }
+}
+
+impl Default for RadioChannel {
+    fn default() -> Self {
+        Self(2)
+    }
+}
+
+impl TryFrom<u8> for RadioChannel {
+    type Error = Error;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        if value > 100 {
+            Err(Error::InvalidParameters)
+        } else {
+            Ok(Self(value))
+        }
+    }
+}
+
+impl From<RadioChannel> for u8 {
+    fn from(value: RadioChannel) -> Self {
+        value.0
     }
 }
 
@@ -117,48 +149,15 @@ where
 ///
 pub struct Addresses {
     /// Base address for pipe 0
-    pub(crate) base0: [u8; 4],
+    pub base0: [u8; 4],
     /// Base address for pipe 1-7
-    pub(crate) base1: [u8; 4],
+    pub base1: [u8; 4],
     /// Prefixes for pipes 0-3, in order
-    pub(crate) prefixes0: [u8; 4],
+    pub prefixes0: [u8; 4],
     /// `prefixes1` - Prefixes for pipes 4-7, in order
-    pub(crate) prefixes1: [u8; 4],
+    pub prefixes1: [u8; 4],
     /// Channel to be used by the radio hardware (must be between 0 and 100)
-    pub(crate) rf_channel: u8,
-}
-
-impl Addresses {
-    /// Creates a new instance of `Addresses`
-    ///
-    /// * `base0` - Base address for pipe 0.
-    /// * `base1` - Base address for pipe 1-7.
-    /// * `prefixes0` - Prefixes for pipes 0-3, in order.
-    /// * `prefixes1` - Prefixes for pipes 4-7, in order.
-    /// * `rf_channel` - Channel to be used by the radio hardware (must be between 0 and 100).
-    ///
-    /// # Panics
-    ///
-    /// This function will panic if `rf_channel` is bigger than 100.
-    pub fn new(
-        base0: [u8; 4],
-        base1: [u8; 4],
-        prefixes0: [u8; 4],
-        prefixes1: [u8; 4],
-        rf_channel: u8,
-    ) -> Result<Self, Error> {
-        // TODO(AJM): Move to a builder pattern here?
-        if rf_channel > 100 {
-            return Err(Error::InvalidParameters);
-        }
-        Ok(Self {
-            base0,
-            base1,
-            prefixes0,
-            prefixes1,
-            rf_channel,
-        })
-    }
+    pub rf_channel: RadioChannel,
 }
 
 impl Default for Addresses {
@@ -168,7 +167,7 @@ impl Default for Addresses {
             base1: [0xC2, 0xC2, 0xC2, 0xC2],
             prefixes0: [0xE7, 0xC2, 0xC3, 0xC4],
             prefixes1: [0xC5, 0xC6, 0xC7, 0xC8],
-            rf_channel: 2,
+            rf_channel: RadioChannel::default(),
         }
     }
 }

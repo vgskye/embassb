@@ -4,7 +4,7 @@ use crate::{
     peripherals::{EsbRadio, EsbTimer, RADIO},
     Config, Error,
 };
-use bbqueue::{ArrayLength, BBBuffer};
+use bbqueue::BBBuffer;
 use core::{
     marker::PhantomData,
     sync::atomic::{AtomicBool, Ordering},
@@ -13,51 +13,32 @@ use core::{
 /// This is the backing structure for the ESB interface
 ///
 /// It is intended to live at `'static` scope, and provides
-/// storage for the `EsbApp` and `EsbIrq` interfaces
-///
-/// ## Creating at static scope
-///
-/// Currently due to lacking const generics, the UX for this
-/// isn't great. You'll probably want something like this:
-///
-/// ## NOTE
-///
-/// Although the members of this struct are public, due to const
-/// generic limitations, they are not intended to be used directly,
-/// outside of `static` creation.
-///
-/// This could cause unintended, though not undefined, behavior.
-///
-/// TL;DR: It's not unsafe, but it's also not going to work correctly.
+/// storage for the `EsbApp` and `EsbIrq` interfaces.
 ///
 /// ```rust
 /// // This creates an ESB storage structure with room for
 /// // 512 bytes of outgoing packets (including headers),
 /// // and 256 bytes of incoming packets (including
 /// // headers).
-/// # use esb::{BBBuffer, consts::*, ConstBBBuffer, EsbBuffer};
+/// # use esb::{BBBuffer, EsbBuffer};
 /// # use core::sync::atomic::AtomicBool;
-/// static BUFFER: EsbBuffer<U512, U256> = EsbBuffer {
-///     app_to_radio_buf: BBBuffer( ConstBBBuffer::new() ),
-///     radio_to_app_buf: BBBuffer( ConstBBBuffer::new() ),
-///     timer_flag: AtomicBool::new(false),
-/// };
+/// static BUFFER: EsbBuffer<512, 256> = EsbBuffer::new();
 /// ```
-pub struct EsbBuffer<OutgoingLen, IncomingLen>
-where
-    OutgoingLen: ArrayLength<u8>,
-    IncomingLen: ArrayLength<u8>,
-{
-    pub app_to_radio_buf: BBBuffer<OutgoingLen>,
-    pub radio_to_app_buf: BBBuffer<IncomingLen>,
-    pub timer_flag: AtomicBool,
+pub struct EsbBuffer<const OUTGOING_LEN: usize, const INCOMING_LEN: usize> {
+    app_to_radio_buf: BBBuffer<OUTGOING_LEN>,
+    radio_to_app_buf: BBBuffer<INCOMING_LEN>,
+    timer_flag: AtomicBool,
 }
 
-impl<OutgoingLen, IncomingLen> EsbBuffer<OutgoingLen, IncomingLen>
-where
-    OutgoingLen: ArrayLength<u8>,
-    IncomingLen: ArrayLength<u8>,
-{
+impl<const OUTGOING_LEN: usize, const INCOMING_LEN: usize> EsbBuffer<OUTGOING_LEN, INCOMING_LEN> {
+    pub const fn new() -> Self {
+        Self {
+            app_to_radio_buf: BBBuffer::new(),
+            radio_to_app_buf: BBBuffer::new(),
+            timer_flag: AtomicBool::new(false),
+        }
+    }
+
     /// Attempt to split the `static` buffer into handles for Interrupt and App context
     ///
     /// This function will only succeed once. If the underlying buffers have also
@@ -74,8 +55,8 @@ where
         config: Config,
     ) -> Result<
         (
-            EsbApp<OutgoingLen, IncomingLen>,
-            EsbIrq<OutgoingLen, IncomingLen, T, Disabled>,
+            EsbApp<OUTGOING_LEN, INCOMING_LEN>,
+            EsbIrq<OUTGOING_LEN, INCOMING_LEN, T, Disabled>,
             IrqTimer<T>,
         ),
         Error,
