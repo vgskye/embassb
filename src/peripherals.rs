@@ -38,6 +38,7 @@ fn address_conversion(value: u32) -> u32 {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub(crate) enum RxPayloadState {
     Ack,
     NoAck,

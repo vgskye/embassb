@@ -37,6 +37,7 @@ use core::ops::{Deref, DerefMut};
 /// | pipe      | 0             |
 ///
 #[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct EsbHeaderBuilder(EsbHeader);
 
 impl Default for EsbHeaderBuilder {
@@ -132,6 +133,7 @@ impl EsbHeaderBuilder {
 /// ```
 ///
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct EsbHeader {
     rssi: u8,
     // TODO(AJM): We can probably combine the 3 bits of pipe

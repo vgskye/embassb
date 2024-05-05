@@ -119,6 +119,7 @@ pub(crate) const RAMP_UP_TIME: u16 = 40;
 
 /// Crate-wide error type
 #[derive(Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Error {
     /// Unable to add item to the incoming queue, queue is full. After issuing this error,
     /// [EsbIrq](irq/struct.EsbIrq.html) will be put in the Idle state

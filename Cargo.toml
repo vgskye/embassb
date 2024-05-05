@@ -22,6 +22,7 @@ features = ["52832"]
 default-target = "x86_64-unknown-linux-gnu"
 
 [dependencies]
+defmt = { version = "0.3.6", optional = true }
 nrf51-pac = { version = "0.12.2", optional = true }
 nrf52810-pac = { version = "0.12.2", optional = true }
 nrf52832-pac = { version = "0.12.2", optional = true }
@@ -33,10 +34,11 @@ version = "0.5.1"
 default-features = false
 
 [features]
-default = ["52840"]
+default = ["52840", "defmt"]
 fast-ru = []
 51 = ["nrf51-pac", "bbqueue/thumbv6"]
 52810 = ["nrf52810-pac"]
 52832 = ["nrf52832-pac"]
 52833 = ["nrf52833-pac"]
 52840 = ["nrf52840-pac"]
+defmt = ["dep:defmt"]

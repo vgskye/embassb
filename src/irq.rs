@@ -15,6 +15,7 @@ pub struct Disabled;
 
 /// The current state of the radio when in PTX mode
 #[derive(PartialEq, Copy, Clone, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum StatePTX {
     /// The radio is idle in PTX mode
     IdleTx,
@@ -29,6 +30,7 @@ pub enum StatePTX {
 
 /// The current state of the radio when in PRX mode
 #[derive(PartialEq, Copy, Clone, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum StatePRX {
     /// The radio is idle in PRX mode
     IdleRx,
